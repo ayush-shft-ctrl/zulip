@@ -8,7 +8,6 @@ from django.contrib.auth import authenticate, password_validation
 from django.contrib.auth.forms import AuthenticationForm, PasswordResetForm, SetPasswordForm
 from django.contrib.auth.tokens import PasswordResetTokenGenerator, default_token_generator
 from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
 from django.http import HttpRequest
 from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy
@@ -23,6 +22,7 @@ from zerver.lib.captcha import CaptchaFormMixin
 from zerver.lib.email_validation import (
     email_allowed_for_realm,
     email_reserved_for_system_bots_error,
+    validate_email_syntax_is_mta_safe,
     validate_is_not_disposable,
 )
 from zerver.lib.exceptions import JsonableError, RateLimitedError
@@ -494,7 +494,10 @@ def rate_limit_password_reset_form_by_email(email: str) -> None:
 
 class CreateUserForm(forms.Form):
     full_name = forms.CharField(max_length=100)
-    email = forms.EmailField(max_length=EMAIL_MAX_LENGTH)
+    email = forms.EmailField(
+        max_length=EMAIL_MAX_LENGTH,
+        validators=[validate_email_syntax_is_mta_safe],
+    )
 
 
 class OurAuthenticationForm(AuthenticationForm):
@@ -602,7 +605,7 @@ class MultiEmailField(forms.Field):
         """Check if value consists only of valid emails."""
         super().validate(emails)
         for email in emails:
-            validate_email(email)
+            validate_email_syntax_is_mta_safe(email)
 
 
 class FindMyTeamForm(forms.Form):

@@ -1,3 +1,4 @@
+import re
 from collections.abc import Callable
 from email.errors import HeaderParseError
 from email.headerregistry import Address
@@ -95,24 +96,36 @@ def email_allowed_for_realm(email: str, realm: Realm) -> None:
     get_realm_email_validator(realm)(email)
 
 
+MTA_SAFE_LOCAL_PART_REGEX = re.compile(
+    r"^[a-zA-Z0-9!#$%&'*+\-/=?^_`{|}~]+(\.[a-zA-Z0-9!#$%&'*+\-/=?^_`{|}~]+)*\Z"
+)
+
+
+def validate_email_syntax_is_mta_safe(email: str) -> None:
+    validators.validate_email(email)
+
+    try:
+        address = Address(addr_spec=email)
+        domain = address.domain
+        idna.encode(domain, uts46=True)
+    except (HeaderParseError, ValueError, idna.IDNAError):
+        raise ValidationError(_("Invalid address."))
+
+    if (
+        '"' in email
+        or not bool(MTA_SAFE_LOCAL_PART_REGEX.match(address.username))
+        or len(address.username) > 64
+    ):
+        raise ValidationError(_("Invalid address."))
+
+
 def validate_email_is_valid(
     email: str,
     validate_email_allowed_in_realm: Callable[[str], None],
 ) -> str | None:
     try:
-        validators.validate_email(email)
+        validate_email_syntax_is_mta_safe(email)
     except ValidationError:
-        return _("Invalid address.")
-
-    # Django's EmailValidator is looser than IDNA 2008 about what it
-    # accepts in a domain, and also accepts RFC 5321 address-literal
-    # domains (user@[192.168.0.1]) which we don't want to deliver to.
-    # Require the domain to IDNA-encode cleanly, which is what SMTP
-    # delivery will need to do.
-    try:
-        domain = Address(addr_spec=email).domain
-        idna.encode(domain, uts46=True)
-    except (HeaderParseError, ValueError, idna.IDNAError):
         return _("Invalid address.")
 
     try:

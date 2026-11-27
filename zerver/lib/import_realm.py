@@ -14,7 +14,6 @@ import pyvips
 from bs4 import BeautifulSoup
 from django.conf import settings
 from django.core.management.base import CommandError
-from django.core.validators import validate_email
 from django.db import connection, transaction
 from django.db.backends.utils import CursorWrapper
 from django.db.models import Count, Q
@@ -35,6 +34,7 @@ from zerver.actions.user_settings import set_avatar_to_default
 from zerver.lib.avatar import generate_and_upload_jdenticon_avatar
 from zerver.lib.avatar_hash import user_avatar_base_path_from_ids
 from zerver.lib.bulk_create import bulk_set_stream_recipient_fields
+from zerver.lib.email_validation import validate_email_syntax_is_mta_safe
 from zerver.lib.export import Field, Path, Record, TableName, date_fields_for_table
 from zerver.lib.markdown import markdown_convert
 from zerver.lib.markdown import version as markdown_version
@@ -1748,8 +1748,8 @@ def do_import_realm(
         # Validate both email attributes to be defensive
         # against any malformed data, where .delivery_email
         # might be set correctly, but .email not.
-        validate_email(user_profile.delivery_email)
-        validate_email(user_profile.email)
+        validate_email_syntax_is_mta_safe(user_profile.delivery_email)
+        validate_email_syntax_is_mta_safe(user_profile.email)
         user_profile.set_unusable_password()
         user_profile.tos_version = UserProfile.TOS_VERSION_BEFORE_FIRST_LOGIN
     UserProfile.objects.bulk_create(user_profiles)

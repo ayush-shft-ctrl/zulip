@@ -35,12 +35,13 @@ from typing import Any, NoReturn, TypeVar, cast, overload
 
 import orjson
 from django.core.exceptions import ValidationError
-from django.core.validators import URLValidator, validate_email
+from django.core.validators import URLValidator
 from django.utils.translation import gettext as _
 from pydantic import ValidationInfo, model_validator
 from pydantic.functional_validators import ModelWrapValidatorHandler
 from typing_extensions import override
 
+from zerver.lib.email_validation import validate_email_syntax_is_mta_safe
 from zerver.lib.exceptions import InvalidJSONError, JsonableError
 from zerver.lib.types import ProfileFieldData, Validator
 
@@ -335,7 +336,7 @@ def equals(expected_val: ResultT) -> Validator[ResultT]:
 
 def validate_login_email(email: str) -> None:
     try:
-        validate_email(email)
+        validate_email_syntax_is_mta_safe(email)
     except ValidationError as err:
         raise JsonableError(str(err.message))
 

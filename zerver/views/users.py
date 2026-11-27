@@ -3,7 +3,6 @@ from typing import Annotated, Any, TypeAlias
 
 from django.conf import settings
 from django.contrib.auth.models import AnonymousUser
-from django.core import validators
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
@@ -43,7 +42,11 @@ from zerver.forms import PASSWORD_TOO_WEAK_ERROR, CreateUserForm
 from zerver.lib.avatar import avatar_url, get_avatar_for_inaccessible_user, get_gravatar_url
 from zerver.lib.bot_config import set_bot_config
 from zerver.lib.demo_organizations import check_demo_organization_has_set_email
-from zerver.lib.email_validation import email_allowed_for_realm, validate_email_not_already_in_realm
+from zerver.lib.email_validation import (
+    email_allowed_for_realm,
+    validate_email_not_already_in_realm,
+    validate_email_syntax_is_mta_safe,
+)
 from zerver.lib.exceptions import (
     CannotDeactivateLastUserError,
     EmailAlreadyInUseError,
@@ -353,7 +356,7 @@ def update_user_backend(
     if new_email is not None and target.delivery_email != new_email:
         assert user_profile.can_change_user_emails and user_profile.is_realm_admin
         try:
-            validators.validate_email(new_email)
+            validate_email_syntax_is_mta_safe(new_email)
         except ValidationError:
             raise JsonableError(_("Invalid new email address."))
         try:

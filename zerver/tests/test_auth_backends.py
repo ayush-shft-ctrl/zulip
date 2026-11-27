@@ -10071,6 +10071,21 @@ class EmailValidatorTestCase(ZulipTestCase):
         # Non-ASCII IDN domains are still accepted.
         self.assertIsNone(validate_email_is_valid("user@münchen.de", validator))
 
+    def test_reject_mta_unsafe_emails(self) -> None:
+        realm = self.example_user("hamlet").realm
+        validator = get_realm_email_validator(realm)
+
+        for email in [
+            '"test:some-bot"@example.com',
+            '"test"@example.com',
+            "test:bot@example.com",
+            '"hello world"@example.com',
+            "user..name@example.com",
+            ".user@example.com",
+            "user.@example.com",
+        ]:
+            self.assertEqual(validate_email_is_valid(email, validator), "Invalid address.")
+
 
 class LDAPBackendTest(ZulipTestCase):
     @override_settings(AUTHENTICATION_BACKENDS=("zproject.backends.ZulipLDAPAuthBackend",))
